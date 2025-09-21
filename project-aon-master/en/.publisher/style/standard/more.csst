@@ -1,0 +1,34 @@
+p {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+div.numbered h3, div.glossary h3 {
+ position: absolute;
+ top: -56px;
+ left: 404px;
+ width: 39px;
+ height: 18pt;
+ margin: 0px;
+ border: 0px none;
+ padding: 0px;
+ font-size: 14pt;
+ background-color: transparent;
+ text-align: center;
+ vertical-align: middle;
+}
+
+img.accent {
+  margin-top: 5px;
+  margin-right: 10px;
+  margin-bottom: 5px;
+}
+sub, sup { 
+  position: relative; 
+  vertical-align: baseline; 
+  line-height: 0; 
+  font-size: 75%;
+}
+sup {top: -0.5em}
+sub {bottom: -0.25em}
+.maintext {line-height: 2.5ex}

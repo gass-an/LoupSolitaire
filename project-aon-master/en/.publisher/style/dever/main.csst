@@ -1,0 +1,335 @@
+/*******************************************************************************
+ global styles 
+*******************************************************************************/
+
+html {
+  font-size: 16pt;
+  font-family: Calibri, Verdana, Arial, Helvetica, sans-serif;
+}
+
+body {
+  background: %%background-color%%;
+  color: %%text-color%%;
+}
+
+.container { 
+  max-width: 900px;
+  padding: 0;
+}
+
+#main-header {
+  margin: 0;
+}
+
+#main-header h1 {
+  background-color: black;
+  color: white;
+  margin: 0;
+  padding-left: 10px;
+  line-height: 40px;
+  font-size: 30px;
+}
+
+#main-header h2 {
+  border-left: solid thin %%text-color%%;
+  border-right: solid thin %%text-color%%;
+  margin: 0;
+  padding-left: 10px;
+  background-color: %%link-color%%;
+  color: white;
+  line-height: 28px;
+  font-size: 24px;
+}
+
+#logo, #project-aon-logo {
+  display: none;
+}
+
+article {
+  margin: 0;
+  padding-top: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-bottom: 1.5rem;
+  background: white;
+  text-align: justify;
+  font-family: Constantia, "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 1rem;
+}
+
+article > div:last-child {
+  margin-bottom: -1rem;
+}
+
+article h3, article h4, article h5, article h6 {
+  margin-top: 0;
+  padding-top: 0.5rem;
+  font-weight: bold;
+}
+
+article h2 {
+  text-align: center;
+  font-size: 2rem;
+}
+
+article h3 {
+  text-align: center;
+  font-size: 1.5rem;
+}
+
+article h4 {
+  font-size: 1.25rem;
+}
+
+article h5 {
+  font-size: 1rem;
+  font-style: italic;
+}
+
+article h6 {
+  font-size: 1rem;
+  font-weight: normal;
+  font-style: italic;
+}
+
+figure {
+  max-width: 386px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+figcaption {
+  max-width: 480px;
+  margin-top: 0.5rem;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1rem;
+  font-size: smaller;
+  font-style: italic;
+}
+
+article table {
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1rem;
+}
+
+a {
+  background-color: transparent;
+  color: %%text-color%%;
+}
+
+:link, :visited {
+  background-color: transparent;
+  color: %%link-color%%;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+:link:hover, :visited:hover {
+  background-color: %%hover-link-background-color%%;
+  color: %%link-color%%;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+:link:active, :visited:active {
+  background-color: transparent;
+  color: %%link-color%%;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+article p {
+  margin-bottom: 1.25rem;
+}
+
+ul.unbulleted { 
+  list-style-type: none;
+}
+
+#page-navigation, div.signpost {
+  text-align: center;
+}
+
+div.signpost {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  line-height: 1.5rem;
+}
+
+span.signpost, .smallcaps {
+  font-size: smaller;
+  font-variant: small-caps;
+}
+
+.dedication {
+  text-align: center;
+  font-style: italic;
+  font-weight: bold;
+  margin-top: 8rem;
+  margin-bottom: 8rem;
+}
+
+.choice, .puzzle, .deadend, .combat {
+  text-align: left;
+  margin-left: 1rem;
+}
+
+dd {
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+ul figure {
+  margin-left: -2.5rem;
+}
+
+.maintext .random-number-table td {
+  border: solid 1px black;
+  text-align: center;
+  line-height: 2.5em;
+  font-size: larger;
+  font-weight: bold;
+}
+
+  .maintext .random-number-table tr:nth-child(2n) td:nth-child(2n)
+, .maintext .random-number-table tr:nth-child(2n+1) td:nth-child(2n+1)
+, .maintext .combat-results-table tr:nth-child(2n) td
+, .maintext .action-chart tr:nth-child(2n) {
+  background-color: #ccc;
+}
+
+.maintext .combat-results-table th, .maintext .combat-results-table td, 
+.maintext .action-chart th, .maintext .action-chart td {
+  border: solid 1px black;
+}
+
+.maintext .combat-results-table tbody th, .maintext .combat-results-table tbody td {
+  white-space: nowrap;
+}
+
+.maintext caption {
+  caption-side: bottom;
+  text-align: center;
+  font-style: italic;
+}
+
+.maintext td.kai-rank {
+  width: 33%;
+  text-align: right;
+  font-size: smaller;
+  font-style: italic;
+}
+
+#footnotes {
+  margin-top: 2rem;
+  border-top: solid thin #ccc;
+  padding-top: 0.5rem;
+  font-size: smaller;
+  font-style: italic;
+}
+
+#footnotes h4 {
+  display: none;
+}
+
+.navbar-dever {
+  margin-bottom: 0;
+  -moz-border-radius: 0;
+  -webkit-border-radius: 0;
+  border-radius: 0;
+  background: black; 
+}
+
+.navbar-dever li > :link , .navbar-dever li > :visited {
+  background-color: black;
+  color: white;
+}
+
+.navbar-dever li > :link:hover , .navbar-dever li > :visited:hover {
+  background-color: #333;
+  color: white;
+}
+
+.navbar-dever .navbar-toggle {
+  border: solid 1px #999;
+}
+
+.navbar-dever .icon-bar { 
+  background-color: white;
+}
+
+#license {
+  margin-top: 0.5rem;
+  color: #666;
+  font-style: italic;
+}
+
+#license p {
+  margin-bottom: 0.25rem;
+}
+
+/******************************************************************************/
+@media only screen and (min-width: 479px) {
+}
+
+/******************************************************************************/
+@media only screen and (min-width: 768px) {
+  body { 
+    padding-bottom: 1rem; 
+  }
+
+  .container { 
+    padding-top: 0;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  #main-header {
+    position: relative;
+  }
+
+  #logo {
+    display: block;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    height: 100px;
+    width: 93px;
+  }
+
+  #project-aon-logo {
+    display: block;
+    position: absolute;
+    top: 17px;
+    right: 10px;
+    width: 93px;
+    height: 93px;
+  }
+
+  #main-header h1 {
+    height: 80px;
+    line-height: 110px;
+    text-align: center;
+    font-size: 36px;
+  }
+
+  #main-header h2 {
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    font-size: 30px;
+  }
+
+  article {
+    border-left: solid thin #ccc;
+    border-right: solid thin #ccc;
+  }
+
+  article h3, article h4, article h5, article h6 {
+    padding-top: 0.5rem;
+  }
+}
