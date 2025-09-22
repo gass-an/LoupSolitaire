@@ -1,0 +1,37 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Bibliothèque Lone Wolf</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+    <h1>Bibliothèque « Livre dont vous êtes le héros »</h1>
+</header>
+
+<div class="container">
+    {% for cat, books in books_by_cat.items() %}
+        {% if books %}
+            <div class="category">
+            <h2>{{ {'lw':'Lone Wolf','gs':'Grey Star','fw':'Freeway Warrior'}[cat] }}</h2>
+            <div class="book-grid">
+                {% for book in books %}
+                <div class="book-card">
+                    <img class="book-cover"
+                        src="{{ url_for('cover', cat=book['category'], code=book['code']) }}"
+                        alt="Couverture {{ book['title'] }}">
+                    <a class="book-title" href="/book/{{ book['code'] }}">
+                    {{ book['title'] }}
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+</body>
+</html>

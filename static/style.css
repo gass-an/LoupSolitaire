@@ -1,44 +1,79 @@
+/* static/style.css */
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f5f5f5;
-    color: #333;
-    margin: 0;
-    padding: 0;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  background: #f9f9f9;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background: linear-gradient(135deg, #2b5876, #4e4376);
+  color: #fff;
+  padding: 1rem 2rem;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 h1 {
-    text-align: center;
-    color: #2c3e50;
-    margin-top: 20px;
+  margin: 0;
+  font-size: 2rem;
 }
 
-.texte {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    line-height: 1.6;
+.container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 0 1rem;
 }
 
-.liens {
-    max-width: 800px;
-    margin: 20px auto;
-    text-align: center;
+.category {
+  margin-bottom: 3rem;
 }
 
-.liens a {
-    display: inline-block;
-    margin: 5px 10px;
-    padding: 10px 15px;
-    text-decoration: none;
-    color: #fff;
-    background-color: #3498db;
-    border-radius: 8px;
-    transition: 0.3s;
+.category h2 {
+  font-size: 1.8rem;
+  border-bottom: 3px solid #4e4376;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
 }
 
-.liens a:hover {
-    background-color: #2980b9;
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.book-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+
+.book-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+}
+
+.book-cover {
+  width: 100%;
+  height: 300px;
+  object-fit: cover;
+}
+
+.book-title {
+  padding: 0.5rem 1rem 1rem;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #4e4376;
+  text-decoration: none;
+  display: block;
+  transition: color 0.2s ease;
+}
+
+.book-title:hover {
+  color: #2b5876;
 }
