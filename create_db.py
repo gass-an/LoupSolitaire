@@ -3,8 +3,8 @@ import glob
 import os
 from lxml import etree
 
-# --- 1. Connexion SQLite ---
-conn = sqlite3.connect("loup_solitare.db")
+# --- Connexion SQLite ---
+conn = sqlite3.connect("./data/loup_solitare.db")
 cur = conn.cursor()
 
 # Supprimer si elles existent déjà
@@ -57,7 +57,7 @@ CREATE TABLE illustrations (
 )
 """)
 
-# --- 2. Fonction pour traiter un fichier XML ---
+# --- Fonction pour traiter un fichier XML ---
 def process_xml(filepath):
     parser = etree.XMLParser(load_dtd=True, resolve_entities=True, recover=True)
     try:
@@ -110,12 +110,12 @@ def process_xml(filepath):
             cur.execute("INSERT INTO choices (section_id, target_id, text) VALUES (?, ?, ?)",
                         (sec_id, target, text))
 
-# --- 3. Parcourir tous les XML du dossier ---
+# --- Parcourir tous les XML du dossier ---
 xml_dir = "./project-aon-master/en/xml/"
 for filepath in glob.glob(os.path.join(xml_dir, "*.xml")):
     process_xml(filepath)
 
-# --- 4. Sauvegarder ---
+# --- Sauvegarder ---
 conn.commit()
 conn.close()
 
