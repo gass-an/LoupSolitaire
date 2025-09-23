@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, g, send_from_directory, abort
+from flask import Flask, render_template, g, send_from_directory, abort, url_for
 import sqlite3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +34,15 @@ def get_books_by_category():
 def index():
     books_by_cat = get_books_by_category()
     return render_template("index.html", books_by_cat=books_by_cat)
+
+@app.route("/book/<code>")
+def book_detail(code):
+    db = get_db()
+    book = db.execute("SELECT * FROM books WHERE code = ?", (code.lower(),)).fetchone()
+    if not book:
+        abort(404)
+    cover_url = url_for('cover', cat=book['category'], code=book['code'])
+    return render_template("book.html", book=book, cover_url=cover_url)
 
 @app.route("/cover/<cat>/<code>")
 def cover(cat, code):

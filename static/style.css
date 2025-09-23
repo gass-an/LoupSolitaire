@@ -77,3 +77,83 @@ h1 {
 .book-title:hover {
   color: #2b5876;
 }
+
+/* ---------- Page livre (détail) ---------- */
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #4e4376;
+  text-decoration: none;
+  font-weight: 600;
+}
+.back-link:hover { color: #2b5876; }
+
+.book-hero {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.book-hero-cover img {
+  width: 100%;
+  height: 520px;
+  object-fit: cover;
+  border-radius: 14px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+  background: #fff;
+}
+
+.book-hero-meta .badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: #eee9ff;
+  color: #4e4376;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.book-hero-title {
+  margin: 0.2rem 0 0.8rem;
+  font-size: 1.8rem;
+  color: #2b2b2b;
+}
+
+.book-synopsis {
+  line-height: 1.6;
+  font-size: 1.05rem;
+  color: #444;
+}
+
+.book-synopsis--empty {
+  color: #777;
+  font-style: italic;
+}
+
+.cta {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2b5876, #4e4376);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(78,67,118,0.25);
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.cta:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(78,67,118,0.3); }
+.cta[aria-disabled="true"] { cursor: not-allowed; opacity: 0.85; }
+  
+/* Responsive */
+@media (max-width: 900px) {
+  .book-hero {
+    grid-template-columns: 1fr;
+  }
+  .book-hero-cover img {
+    height: 420px;
+  }
+}

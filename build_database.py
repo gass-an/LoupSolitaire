@@ -46,6 +46,9 @@ _ATTR_HEIGHT = re.compile(r'height="([^"]+)"', re.IGNORECASE)
 _ATTR_MIME = re.compile(r'mime-type="([^"]+)"', re.IGNORECASE)
 _GAMEBOOK_TITLE = re.compile(r"<gamebook[^>]*>.*?<meta>.*?<title>(.*?)</title>", re.DOTALL | re.IGNORECASE)
 _XML_LANG = re.compile(r'xml:lang="([^"]+)"', re.IGNORECASE)
+_BLURB_BLOCK = re.compile(r'<([a-zA-Z0-9:_-]+)[^>]*\bclass="[^"]*\bblurb\b[^"]*"[^>]*>(.*?)</\1>',
+                          re.IGNORECASE | re.DOTALL)
+
 
 def _balance_section_block(xml: str, start_tag_pos: int) -> Tuple[int, int]:
     n = len(xml)
@@ -134,6 +137,7 @@ def read_text_file(path: str) -> str:
         with open(path, "r", encoding="latin-1") as f:
             return f.read()
 
+
 def parse_book_from_file(xml_path: str) -> Dict:
     raw = read_text_file(xml_path)
     mt = _GAMEBOOK_TITLE.search(raw)
@@ -142,6 +146,14 @@ def parse_book_from_file(xml_path: str) -> Dict:
     mlang = _XML_LANG.search(raw)
     lang = (mlang.group(1) if mlang else "en").lower()
 
+    # synopsis = premier bloc avec class="blurb" trouvé n'importe où
+    synopsis_text = None
+    m_blurb = _BLURB_BLOCK.search(raw)
+    if m_blurb:
+        # m_blurb.group(2) = contenu interne du bloc balisé "blurb"
+        synopsis_text = strip_tags(m_blurb.group(2)).strip()
+
+    # Sections / liens / images (inchangé)
     sect_ids = [m.group(1) for m in re.finditer(r'id="(sect\d+)"', raw, flags=re.IGNORECASE)]
     include_special = set()
     if re.search(r'<section[^>]*\bid="title"', raw, flags=re.IGNORECASE):
@@ -186,7 +198,9 @@ def parse_book_from_file(xml_path: str) -> Dict:
         "sections": sections,
         "links": links,
         "images": images,
+        "synopsis": synopsis_text or None,  # uniquement depuis class="blurb"
     }
+
 
 # ---------- SQLite ----------
 
@@ -198,8 +212,10 @@ CREATE TABLE IF NOT EXISTS books (
     code      TEXT NOT NULL UNIQUE,
     title     TEXT NOT NULL,
     language  TEXT NOT NULL,
-    category  TEXT
+    category  TEXT,
+    synopsis  TEXT
 );
+
 
 CREATE TABLE IF NOT EXISTS sections (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -244,18 +260,22 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_SQL)
     conn.commit()
 
-def upsert_book(conn: sqlite3.Connection, code: str, title: str, language: str, category: str) -> int:
+def upsert_book(conn: sqlite3.Connection, code: str, title: str, language: str, category: str, synopsis: Optional[str]) -> int:
     cur = conn.cursor()
     cur.execute(
-        """INSERT INTO books(code, title, language, category)
-           VALUES (?, ?, ?, ?)
+        """INSERT INTO books(code, title, language, category, synopsis)
+           VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(code) DO UPDATE
-           SET title=excluded.title, language=excluded.language, category=excluded.category""",
-        (code, title, language, category)
+           SET title=excluded.title,
+               language=excluded.language,
+               category=excluded.category,
+               synopsis=COALESCE(excluded.synopsis, books.synopsis)""",
+        (code, title, language, category, synopsis)
     )
     conn.commit()
     cur.execute("SELECT id FROM books WHERE code = ?", (code,))
     return cur.fetchone()[0]
+
 
 def insert_sections_links_images(conn: sqlite3.Connection, book_id: int, book: Dict) -> None:
     cur = conn.cursor()
@@ -305,6 +325,19 @@ def find_category_from_cover(code: str) -> str:
                 return cat
     return "fw"
 
+def _clean_snippet(text: str, max_len: int = 900) -> str:
+    t = re.sub(r"\s+", " ", strip_tags(text)).strip()
+    if len(t) <= max_len:
+        return t
+    # coupe sur une limite de phrase/mot pour un rendu propre
+    cut = t.rfind(". ", 0, max_len)
+    if cut == -1:
+        cut = t.rfind(" ", 0, max_len)
+    if cut == -1:
+        cut = max_len
+    return t[:cut].rstrip() + "…"
+
+
 # ---------- Programme principal ----------
 
 def main():
@@ -337,7 +370,7 @@ def main():
             if not book["lang"].startswith(LANG_FILTER_PREFIX):
                 continue
 
-            book_id = upsert_book(conn, book["code"], book["title"], book["lang"], category)
+            book_id = upsert_book(conn, book["code"], book["title"], book["lang"], category, book.get("synopsis"))
             insert_sections_links_images(conn, book_id, book)
 
             print(f"✓ Importé {book['code']} — {book['title']} ({book['lang']}) [{category}] "

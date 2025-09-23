@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ book['title'] }} — Détail</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <h1>{{ book['title'] }}</h1>
+</header>
+
+<div class="container">
+  <a class="back-link" href="{{ url_for('index') }}">← Retour à la bibliothèque</a>
+
+  <div class="book-hero">
+    <div class="book-hero-cover">
+      <img src="{{ cover_url }}" alt="Couverture {{ book['title'] }}">
+    </div>
+    <div class="book-hero-meta">
+      <div class="badge">{{ {'lw':'Lone Wolf','gs':'Grey Star','fw':'Freeway Warrior'}.get(book['category'], 'Série') }}</div>
+      <h2 class="book-hero-title">{{ book['title'] }}</h2>
+      {% if book['synopsis'] %}
+        <p class="book-synopsis">{{ book['synopsis'] }}</p>
+      {% else %}
+        <p class="book-synopsis book-synopsis--empty">Synopsis indisponible pour ce livre.</p>
+      {% endif %}
+
+      <a class="cta" href="#" aria-disabled="true">Commencer l'aventure</a>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
