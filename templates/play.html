@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ book['title'] }} — {{ section['sec_id'] }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <h1>{{ book['title'] }}</h1>
+</header>
+
+<div class="container">
+  <a class="back-link" href="{{ url_for('book_detail', code=book['code']) }}">← Détail du livre</a>
+
+  <div class="section-head">
+    <div class="badge">{{ section['sec_id'] }}</div>
+    {% if section['title'] %}
+      <h2 class="section-title">{{ section['title'] }}</h2>
+    {% endif %}
+  </div>
+
+  <div class="section-body">
+    <div class="section-text">
+      {{ content_html }}
+    </div>
+
+    {% if illu_urls %}
+    <div class="section-illus">
+      {% for u in illu_urls %}
+        <img src="{{ u }}" alt="Illustration">
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if choices %}
+  <div class="choices">
+    {% for c in choices %}
+      <a class="choice-btn" href="{{ url_for('play', code=book['code'], sec_id=c['to_sec_ref']) }}">
+        {{ c['label'] }}
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="no-choices">Aucun choix disponible pour cette section.</p>
+{% endif %}
+
+</div>
+
+</body>
+</html>

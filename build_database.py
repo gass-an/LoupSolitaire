@@ -114,9 +114,20 @@ def extract_data(block_xml: str) -> Tuple[str, List[Dict[str, str]], List[Dict[s
     for cm in _CHOICE.finditer(data_xml):
         target = cm.group(1)
         inner = cm.group(2)
+
+        # Texte complet sans balises (y compris link-text)
+        full_text = strip_tags(inner).strip()
+
+        # Texte du link-text (seulement "turn to 141") si besoin
         lm = _LINK_TEXT.search(inner)
-        display = (lm.group(1).strip() if lm else strip_tags(inner)) or target
-        choices.append({"target": target, "display": display, "raw": inner})
+        link_text = lm.group(1).strip() if lm else None
+
+        choices.append({
+            "target": target,
+            "display": full_text,     # phrase complète
+            "link_text": link_text,   # en plus si tu veux
+            "raw": inner
+        })
 
     images = []
     for im in _ILLUSTRATION.finditer(data_xml):

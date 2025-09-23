@@ -26,7 +26,8 @@
         <p class="book-synopsis book-synopsis--empty">Synopsis indisponible pour ce livre.</p>
       {% endif %}
 
-      <a class="cta" href="#" aria-disabled="true">Commencer l'aventure</a>
+      <a class="cta" href="{{ url_for('play', code=book['code'], sec_id='sect1') }}">Commencer l'aventure</a>
+
     </div>
   </div>
 </div>
