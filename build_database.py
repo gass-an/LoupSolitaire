@@ -49,6 +49,22 @@ _XML_LANG = re.compile(r'xml:lang="([^"]+)"', re.IGNORECASE)
 _BLURB_BLOCK = re.compile(r'<([a-zA-Z0-9:_-]+)[^>]*\bclass="[^"]*\bblurb\b[^"]*"[^>]*>(.*?)</\1>',
                           re.IGNORECASE | re.DOTALL)
 
+ENTITY_MAP = {
+    "<ch.apos/>": "'",
+    "<ch.ndash/>": "-",
+    "<ch.mdash/>": "—",
+    "<ch.hellip/>": "…",
+    "<ch.amp/>": "&",
+    # ajoute ici d’autres entités Project Aon si besoin
+}
+
+def clean_entities(text: str) -> str:
+    if not text:
+        return text
+    for k, v in ENTITY_MAP.items():
+        text = text.replace(k, v)
+    return text
+
 
 def _balance_section_block(xml: str, start_tag_pos: int) -> Tuple[int, int]:
     n = len(xml)
@@ -142,6 +158,8 @@ def parse_book_from_file(xml_path: str) -> Dict:
     raw = read_text_file(xml_path)
     mt = _GAMEBOOK_TITLE.search(raw)
     book_title = mt.group(1).strip() if mt else os.path.basename(xml_path)
+    book_title = clean_entities(book_title)
+
     code = os.path.splitext(os.path.basename(xml_path))[0].lower()
     mlang = _XML_LANG.search(raw)
     lang = (mlang.group(1) if mlang else "en").lower()
@@ -167,7 +185,11 @@ def parse_book_from_file(xml_path: str) -> Dict:
         if not block:
             continue
         sec_title, meta_links, _meta_raw = extract_meta(block)
+        sec_title = clean_entities(sec_title)
+
         data_xml, choices, imgs = extract_data(block)
+        data_xml = clean_entities(data_xml)
+
         mclass = _SECTION_CLASS.search(block)
         sclass = mclass.group(1) if mclass else None
 
