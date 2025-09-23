@@ -21,31 +21,31 @@
   </div>
 
   <div class="section-body">
+  <div class="section-left">
     <div class="section-text">
       {{ content_html }}
     </div>
 
-    {% if illu_urls %}
-    <div class="section-illus">
-      {% for u in illu_urls %}
-        <img src="{{ u }}" alt="Illustration">
+    {% if choices %}
+    <div class="choices">
+      {% for c in choices %}
+        <a class="choice-btn" href="{{ url_for('play', code=book['code'], sec_id=c['to_sec_ref']) }}">
+          {{ c['label'] }}
+        </a>
       {% endfor %}
     </div>
+    {% else %}
+      <p class="no-choices">Aucun choix disponible pour cette section.</p>
     {% endif %}
   </div>
 
-  {% if choices %}
-  <div class="choices">
-    {% for c in choices %}
-      <a class="choice-btn" href="{{ url_for('play', code=book['code'], sec_id=c['to_sec_ref']) }}">
-        {{ c['label'] }}
-      </a>
+  {% if illu_urls %}
+  <div class="section-illus">
+    {% for u in illu_urls %}
+      <img src="{{ u }}" alt="Illustration">
     {% endfor %}
   </div>
-{% else %}
-  <p class="no-choices">Aucun choix disponible pour cette section.</p>
-{% endif %}
-
+  {% endif %}
 </div>
 
 </body>

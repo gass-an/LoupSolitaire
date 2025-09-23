@@ -207,23 +207,30 @@ h1 {
 
 .choices {
   display: flex;
-  flex-wrap: wrap;
-  gap: .75rem;
-  margin-top: 1rem;
+  flex-direction: column;  /* vertical */
+  align-items: flex-start; /* alignés au début, pas full width */
+  gap: .5rem;
+  margin-top: 1.5rem;
 }
-
 .choice-btn {
-  display: inline-block;
-  padding: .7rem 1rem;
-  border-radius: 10px;
+  display: inline-block;    /* largeur auto selon contenu */
+  padding: .6rem 1rem;
   background: linear-gradient(135deg, #2b5876, #4e4376);
   color: #fff;
   text-decoration: none;
-  font-weight: 700;
-  box-shadow: 0 6px 14px rgba(78,67,118,.25);
-  transition: transform .15s ease, box-shadow .15s ease;
+  font-weight: 600;
+  text-align: left;        /* texte aligné à gauche */
+  border-radius: 8px;
+  box-shadow: 0 3px 5px rgba(0,0,0,0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  max-width: 100%;         /* sur mobile */
 }
-.choice-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(78,67,118,.3); }
+
+
+.choice-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
 
 .nav-link {
   padding: .55rem .8rem;
@@ -239,6 +246,13 @@ h1 {
 
 @media (max-width: 900px) {
   .section-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* texte + boutons + images en dessous */
+  }
+  .choices {
+    align-items: stretch; /* full width sur mobile */
+  }
+  .choice-btn {
+    text-align: center;
+    width: 100%;
   }
 }

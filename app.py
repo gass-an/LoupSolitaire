@@ -8,6 +8,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "data", "lonewolf.db")
 IMAGE_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "jpeg")
 
+# Prépare les racines d’images d’illustrations (Project Aon stocke souvent en gif/png)
+GIF_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "gif")
+PNG_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "png")
+JPEG_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "jpeg")  # parfois utilisé
+
 app = Flask(__name__)
 
 def get_db():
@@ -58,12 +63,53 @@ def cover(cat, code):
             return send_from_directory(base_dir, filename)
     abort(404)
 
+def resolve_illu_url(category: str, code: str, rel_src: str):
+    """
+    Résout l'URL d'une illustration en testant PNG -> JPEG -> GIF.
+    1) Essaye le chemin donné (normalisé) et /ill/<basename>
+    2) Si introuvable, cherche récursivement le basename sous en/<fmt>/<cat>/<code>/**
+    """
+    if not rel_src:
+        return None
 
+    # normaliser le src
+    rel_src_norm = rel_src.replace("\\", "/").lstrip("./")
+    rel_src_norm = os.path.normpath(rel_src_norm).replace("\\", "/")
+    basename = os.path.basename(rel_src_norm)
 
-# Prépare les racines d’images d’illustrations (Project Aon stocke souvent en gif/png)
-GIF_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "gif")
-PNG_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "png")
-JPEG_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "jpeg")  # parfois utilisé
+    # candidats "directs"
+    direct_candidates_rel = [rel_src_norm]
+    if not rel_src_norm.lower().startswith("ill/") and basename:
+        direct_candidates_rel.append(f"ill/{basename}")
+
+    roots = [("png", PNG_ROOT), ("jpeg", JPEG_ROOT), ("gif", GIF_ROOT)]
+    tried = []
+
+    # 1) essais directs
+    for fmt, base_root in roots:
+        for rel_try in direct_candidates_rel:
+            fullpath = os.path.join(base_root, category, code, rel_try.replace("/", os.sep))
+            if os.path.isfile(fullpath):
+                return url_for("illu", fmt=fmt, cat=category, code=code, path=rel_try)
+            tried.append(fullpath)
+
+    # 2) recherche récursive sur le basename
+    for fmt, base_root in roots:
+        code_dir = os.path.join(base_root, category, code)
+        if not os.path.isdir(code_dir):
+            continue
+        # walk une seule fois par fmt
+        for root, _dirs, files in os.walk(code_dir):
+            # match case-insensitive sur le basename
+            for f in files:
+                if f.lower() == basename.lower():
+                    abs_found = os.path.join(root, f)
+                    # chemin relatif depuis <fmt>/<cat>/<code>
+                    rel_found = os.path.relpath(abs_found, code_dir).replace("\\", "/")
+                    return url_for("illu", fmt=fmt, cat=category, code=code, path=rel_found)
+
+    return None
+
 
 def _render_content_xml(xml: str) -> str:
     """
@@ -77,7 +123,7 @@ def _render_content_xml(xml: str) -> str:
     # Entités custom (si tu n'as pas déjà fait le nettoyage à l'import)
     replacements = {
         "<ch.apos/>": "'",
-        "<ch.ndash/>": "–",
+        "<ch.ndash/>": "-",
         "<ch.mdash/>": "—",
         "<ch.hellip/>": "…",
         "<ch.amp/>": "&",
@@ -156,14 +202,15 @@ def play(code, sec_id=None):
 
     content_html = Markup(_render_content_xml(section["content_xml"]))
 
-    # Construction des URLs d’illustration (identique à avant)
+    # Illustrations associées -> on construit les URLs avec fallback PNG -> JPEG -> GIF
     illu_urls = []
     for im in illus:
-        for root, fmt in ((GIF_ROOT, "gif"), (PNG_ROOT, "png"), (JPEG_ROOT, "jpeg")):
-            p = os.path.join(root, book["category"], book["code"], im["src"].replace("/", os.sep))
-            if os.path.isfile(p):
-                illu_urls.append(url_for("illu", cat=book["category"], code=book["code"], fmt=fmt, path=im["src"]))
-                break
+        u = resolve_illu_url(book["category"], book["code"], im["src"])
+        if u:
+            illu_urls.append(u)
+
+
+
 
     return render_template(
         "play.html",
