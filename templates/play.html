@@ -26,6 +26,15 @@
       {{ content_html }}
     </div>
 
+    {% if has_combat %}
+      <div class="combat-card">
+        <div class="combat-title">⚔️ Combat</div>
+        <p>Une confrontation commence dans cette section.</p>
+        <a class="cta" href="{{ url_for('combat_view', code=book['code'], sec_id=section['sec_id']) }}">Engager le combat</a>
+      </div>
+    {% endif %}
+
+
     {% if choices %}
     <div class="choices">
       {% for c in choices %}

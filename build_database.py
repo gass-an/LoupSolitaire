@@ -18,6 +18,7 @@ import os
 import re
 import sqlite3
 import sys
+import json
 from glob import glob
 from typing import Dict, List, Optional, Tuple
 
@@ -46,8 +47,11 @@ _ATTR_HEIGHT = re.compile(r'height="([^"]+)"', re.IGNORECASE)
 _ATTR_MIME = re.compile(r'mime-type="([^"]+)"', re.IGNORECASE)
 _GAMEBOOK_TITLE = re.compile(r"<gamebook[^>]*>.*?<meta>.*?<title>(.*?)</title>", re.DOTALL | re.IGNORECASE)
 _XML_LANG = re.compile(r'xml:lang="([^"]+)"', re.IGNORECASE)
-_BLURB_BLOCK = re.compile(r'<([a-zA-Z0-9:_-]+)[^>]*\bclass="[^"]*\bblurb\b[^"]*"[^>]*>(.*?)</\1>',
-                          re.IGNORECASE | re.DOTALL)
+_BLURB_BLOCK = re.compile(r'<([a-zA-Z0-9:_-]+)[^>]*\bclass="[^"]*\bblurb\b[^"]*"[^>]*>(.*?)</\1>', re.IGNORECASE | re.DOTALL)
+_COMBAT_BLOCK = re.compile(r"<combat\b[^>]*>(.*?)</combat>", re.IGNORECASE | re.DOTALL)
+_ENEMY_NAME = re.compile(r"<enemy>(.*?)</enemy>", re.IGNORECASE | re.DOTALL)
+_ENEMY_ATTR = re.compile(r'<enemy-attribute[^>]*\bclass="([^"]+)"[^>]*>(.*?)</enemy-attribute>', re.IGNORECASE | re.DOTALL)
+
 
 ENTITY_MAP = {
     "<ch.apos/>": "'",
@@ -154,7 +158,46 @@ def extract_data(block_xml: str) -> Tuple[str, List[Dict[str, str]], List[Dict[s
         if chosen:
             images.append(chosen)
 
-    return data_xml, choices, images
+    combats = []
+    for cm in _COMBAT_BLOCK.finditer(data_xml):
+        inner = cm.group(1)
+        enemies = []
+
+        # Un bloc <combat> peut lister plusieurs <enemy> avec leurs <enemy-attribute>
+        # On regroupe par "groupe logique": soit (enemy + ses attrs), soit attrs seuls.
+        # 1) essaie pattern "enemy + attrs suivants"
+        chunks = re.split(r"(?i)(?=<enemy>)", inner)
+        if len(chunks) > 1:
+            idx = 0
+            for ch in chunks:
+                if not ch.strip():
+                    continue
+                mname = _ENEMY_NAME.search(ch)
+                name = strip_tags(mname.group(1)).strip() if mname else None
+                attrs = dict()
+                for am in _ENEMY_ATTR.finditer(ch):
+                    cls = am.group(1).strip().lower()
+                    val = strip_tags(am.group(2)).strip()
+                    attrs[cls] = val
+                enemies.append({"index": idx, "name": name,
+                                "cs": int(attrs.get("combatskill")) if attrs.get("combatskill") else None,
+                                "ep": int(attrs.get("endurance")) if attrs.get("endurance") else None,
+                                "extra": {k:v for k,v in attrs.items() if k not in ("combatskill","endurance")}})
+                idx += 1
+        else:
+            # 2) Pas de <enemy> distincts : on prend juste les attrs globaux comme un ennemi anonyme
+            attrs = dict((am.group(1).strip().lower(), strip_tags(am.group(2)).strip())
+                         for am in _ENEMY_ATTR.finditer(inner))
+            if attrs:
+                enemies.append({"index": 0, "name": None,
+                                "cs": int(attrs.get("combatskill")) if attrs.get("combatskill") else None,
+                                "ep": int(attrs.get("endurance")) if attrs.get("endurance") else None,
+                                "extra": {k:v for k,v in attrs.items() if k not in ("combatskill","endurance")}})
+
+        if enemies:
+            combats.append({"enemies": enemies, "raw": inner})
+
+    return data_xml, choices, images, combats
 
 def read_text_file(path: str) -> str:
     try:
@@ -167,6 +210,8 @@ def read_text_file(path: str) -> str:
 
 def parse_book_from_file(xml_path: str) -> Dict:
     raw = read_text_file(xml_path)
+
+    # Titre / code / langue
     mt = _GAMEBOOK_TITLE.search(raw)
     book_title = mt.group(1).strip() if mt else os.path.basename(xml_path)
     book_title = clean_entities(book_title)
@@ -175,45 +220,61 @@ def parse_book_from_file(xml_path: str) -> Dict:
     mlang = _XML_LANG.search(raw)
     lang = (mlang.group(1) if mlang else "en").lower()
 
-    # synopsis = premier bloc avec class="blurb" trouvé n'importe où
+    # Synopsis : 1er bloc avec class="blurb"
     synopsis_text = None
     m_blurb = _BLURB_BLOCK.search(raw)
     if m_blurb:
-        # m_blurb.group(2) = contenu interne du bloc balisé "blurb"
         synopsis_text = strip_tags(m_blurb.group(2)).strip()
 
-    # Sections / liens / images (inchangé)
+    # Sections listées : "title" (si présent) + sect###
     sect_ids = [m.group(1) for m in re.finditer(r'id="(sect\d+)"', raw, flags=re.IGNORECASE)]
     include_special = set()
     if re.search(r'<section[^>]*\bid="title"', raw, flags=re.IGNORECASE):
         include_special.add("title")
 
-    sections, links, images = [], [], []
+    sections, links, images, combats = [], [], [], []
     ordered_ids = list(include_special) + sorted(sect_ids, key=lambda x: int(x[4:]))
 
     for sid in ordered_ids:
         block = extract_section_by_id(raw, sid)
         if not block:
             continue
+
+        # Meta & titre de section
         sec_title, meta_links, _meta_raw = extract_meta(block)
         sec_title = clean_entities(sec_title)
 
-        data_xml, choices, imgs = extract_data(block)
+        # Corps + choix + illustrations + combats (⚠ extract_data doit renvoyer 4 valeurs)
+        data_xml, choices, imgs, cmbs = extract_data(block)
         data_xml = clean_entities(data_xml)
 
+        # Classe de section
         mclass = _SECTION_CLASS.search(block)
         sclass = mclass.group(1) if mclass else None
 
+        # Section
         sections.append({
             "id": sid,
             "title": sec_title,
             "class": sclass,
             "content": data_xml.strip()
         })
+
+        # Liens méta
         for lnk in meta_links:
-            links.append({"from": sid, "to": lnk["target"], "rel": lnk["rel"], "display": None, "raw": None})
+            links.append({
+                "from": sid, "to": lnk["target"], "rel": lnk["rel"],
+                "display": None, "raw": None
+            })
+
+        # Choix (phrase complète déjà mise en display par extract_data)
         for ch in choices:
-            links.append({"from": sid, "to": ch["target"], "rel": "choice", "display": ch["display"], "raw": ch["raw"]})
+            links.append({
+                "from": sid, "to": ch["target"], "rel": "choice",
+                "display": ch["display"], "raw": ch["raw"]
+            })
+
+        # Illustrations
         for im in imgs:
             images.append({
                 "section": sid,
@@ -224,6 +285,13 @@ def parse_book_from_file(xml_path: str) -> Dict:
                 "mime": im.get("mime"),
             })
 
+        # ⚔️ Combats
+        for cb in cmbs:
+            combats.append({
+                "section": sid,
+                "enemies": cb["enemies"]  # liste de {index,name,cs,ep,extra}
+            })
+
     return {
         "code": code,
         "title": book_title,
@@ -231,8 +299,10 @@ def parse_book_from_file(xml_path: str) -> Dict:
         "sections": sections,
         "links": links,
         "images": images,
-        "synopsis": synopsis_text or None,  # uniquement depuis class="blurb"
+        "combats": combats,               # <— AJOUT
+        "synopsis": synopsis_text or None
     }
+
 
 
 # ---------- SQLite ----------
@@ -260,7 +330,6 @@ CREATE TABLE IF NOT EXISTS sections (
     UNIQUE(book_id, sec_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_sections_book_sec ON sections(book_id, sec_id);
 
 CREATE TABLE IF NOT EXISTS links (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -272,8 +341,6 @@ CREATE TABLE IF NOT EXISTS links (
     raw_xml        TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_links_from ON links(book_id, from_section);
-CREATE INDEX IF NOT EXISTS idx_links_to   ON links(book_id, to_sec_ref);
 
 CREATE TABLE IF NOT EXISTS images (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,7 +353,32 @@ CREATE TABLE IF NOT EXISTS images (
     variant_class  TEXT
 );
 
+-- Combat blocks trouvés dans une section
+CREATE TABLE IF NOT EXISTS combats (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id     INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    section_id  INTEGER NOT NULL REFERENCES sections(id) ON DELETE CASCADE,
+    note        TEXT    -- texte libre éventuel (non obligatoire)
+);
+
+-- Ennemis d'un bloc de combat (un combat peut avoir 1+ ennemis)
+CREATE TABLE IF NOT EXISTS combat_enemies (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    combat_id   INTEGER NOT NULL REFERENCES combats(id) ON DELETE CASCADE,
+    enemy_index INTEGER NOT NULL,     -- ordre d'apparition (0..n-1)
+    name        TEXT,                 -- <enemy>
+    cs          INTEGER,              -- <enemy-attribute class="combatskill">
+    ep          INTEGER,              -- <enemy-attribute class="endurance">
+    extra_json  TEXT                  -- autres attributs éventuels (JSON)
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_sections_book_sec ON sections(book_id, sec_id);
+CREATE INDEX IF NOT EXISTS idx_links_from ON links(book_id, from_section);
+CREATE INDEX IF NOT EXISTS idx_links_to   ON links(book_id, to_sec_ref);
 CREATE INDEX IF NOT EXISTS idx_images_section ON images(section_id);
+CREATE INDEX IF NOT EXISTS idx_combats_section ON combats(section_id);
+CREATE INDEX IF NOT EXISTS idx_cenemies_combat ON combat_enemies(combat_id);
 """
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -344,6 +436,8 @@ def insert_sections_links_images(conn: sqlite3.Connection, book_id: int, book: D
             (book_id, section_rowid, im["src"], im["width"], im["height"], im["mime"], im["class"])
         )
 
+    insert_combats(conn, book_id, book, sec_id_to_rowid)
+
     conn.commit()
 
 def find_category_from_cover(code: str) -> str:
@@ -369,6 +463,37 @@ def _clean_snippet(text: str, max_len: int = 900) -> str:
     if cut == -1:
         cut = max_len
     return t[:cut].rstrip() + "…"
+
+import json  # en haut du script
+
+def insert_combats(conn: sqlite3.Connection, book_id: int, book: Dict, sec_id_to_rowid: Dict[str, int]) -> None:
+    cur = conn.cursor()
+    for cb in book.get("combats", []):
+        sid = cb["section"]
+        section_rowid = sec_id_to_rowid.get(sid)
+        if not section_rowid:
+            continue
+
+        cur.execute(
+            "INSERT INTO combats(book_id, section_id, note) VALUES (?, ?, ?)",
+            (book_id, section_rowid, None)
+        )
+        combat_id = cur.lastrowid
+
+        for e in cb["enemies"]:
+            cur.execute(
+                "INSERT INTO combat_enemies(combat_id, enemy_index, name, cs, ep, extra_json) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    combat_id,
+                    e.get("index", 0),
+                    e.get("name"),
+                    e.get("cs"),
+                    e.get("ep"),
+                    json.dumps(e.get("extra")) if e.get("extra") else None
+                )
+            )
+    conn.commit()
 
 
 # ---------- Programme principal ----------

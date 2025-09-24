@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Combat — {{ book['title'] }} / {{ section['sec_id'] }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header><h1>⚔️ Combat</h1></header>
+<div class="container">
+  <a class="back-link" href="{{ url_for('play', code=book['code'], sec_id=section['sec_id']) }}">← Retour à la section</a>
+
+  {% if not state %}
+    <div class="combat-card">
+      <div class="combat-title">Préparer le combat</div>
+      {% if enemies %}
+        <p>Adversaire détecté&nbsp;:</p>
+        <ul>
+          {% for e in enemies %}
+            <li><strong>{{ e['name'] or 'Enemy' }}</strong> — CS {{ e['cs'] or '?' }}, EP {{ e['ep'] or '?' }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <form action="{{ url_for('combat_step', code=book['code'], sec_id=section['sec_id']) }}" method="post" class="combat-form">
+        <input type="hidden" name="action" value="start">
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Votre Combat Skill</label>
+            <input type="number" name="lw_cs" required min="0">
+          </div>
+          <div class="form-row">
+            <label>Votre Endurance</label>
+            <input type="number" name="lw_ep" required min="1">
+          </div>
+          {% set e0 = enemies[0] if enemies else None %}
+          <div class="form-row">
+            <label>CS ennemi</label>
+            <input type="number" name="enemy_cs" value="{{ e0['cs'] if e0 else '' }}" required min="0">
+          </div>
+          <div class="form-row">
+            <label>EP ennemi</label>
+            <input type="number" name="enemy_ep" value="{{ e0['ep'] if e0 else '' }}" required min="1">
+          </div>
+        </div>
+        <button class="cta" type="submit">Commencer le combat</button>
+      </form>
+    </div>
+
+  {% else %}
+    <div class="combat-card">
+      <div class="combat-title">Manche {{ state.round }}</div>
+
+      <div class="battle-bars">
+        <div class="bar">
+          <div class="bar-top">
+            <strong>Vous</strong>
+            <span>CS {{ state.lw_cs }} · EP {{ state.lw_ep }}</span>
+        </div>
+        <div class="bar-track">
+            <div class="bar-fill"
+                style="--pct: {{
+                    ( (state.lw_ep | int) /
+                    ((state.lw_ep_max | default(state.lw_ep, true)) | int)
+                    * 100) | round(0)
+                }};"></div>
+            </div>
+        </div>
+        <div class="bar">
+          <div class="bar-top">
+            <strong>Ennemi</strong>
+            <span>CS {{ state.enemy_cs }} · EP {{ state.enemy_ep }}</span>
+        </div>
+        <div class="bar-track">
+            <div class="bar-fill enemy"
+                style="--pct: {{
+                    ( (state.enemy_ep | int) /
+                    ((state.enemy_ep_max | default(state.enemy_ep, true)) | int)
+                    * 100) | round(0)
+                }};"></div>
+            </div>
+        </div>
+      </div>
+
+      {% if state.log and state.lw_ep > 0 and state.enemy_ep > 0 %}
+        {% set last = state.log[-1] %}
+        <div class="round-highlight">
+          Jet: <span class="badge">{{ last.roll }}</span> · Diff CS: <span class="badge">{{ last.diff }}</span> ·
+          Dégâts infligés: <strong>{{ last.e_dmg }}</strong> · Dégâts reçus: <strong>{{ last.lw_dmg }}</strong>
+        </div>
+      {% endif %}
+
+      {% if state.lw_ep > 0 and state.enemy_ep > 0 %}
+        <form action="{{ url_for('combat_step', code=book['code'], sec_id=section['sec_id']) }}" method="post">
+          <input type="hidden" name="action" value="next">
+          <input type="hidden" name="state_json" value='{{ state|tojson }}'>
+          <button class="cta" type="submit">Tour suivant</button>
+        </form>
+      {% else %}
+        <div class="result-banner">
+          {% if state.enemy_ep <= 0 and state.lw_ep > 0 %}
+            ✅ Victoire&nbsp;! L'ennemi est vaincu.
+          {% elif state.lw_ep <= 0 and state.enemy_ep > 0 %}
+            ❌ Défaite… Vous tombez au combat.
+          {% else %}
+            ⏸ Combat interrompu.
+          {% endif %}
+        </div>
+        <div class="post-combat">
+          <a class="cta ghost" href="{{ url_for('play', code=book['code'], sec_id=section['sec_id']) }}">Continuer l'histoire</a>
+        </div>
+      {% endif %}
+
+      {% if state.log %}
+        <div class="log">
+          <h3>Journal</h3>
+          <table class="log-table">
+            <thead>
+              <tr><th>Manche</th><th>Jet</th><th>Diff CS</th><th>Ennemi -EP</th><th>Vous -EP</th><th>EP Ennemi</th><th>EP Vous</th></tr>
+            </thead>
+            <tbody>
+              {% for r in state.log %}
+                <tr>
+                  <td>{{ r.round }}</td>
+                  <td>{{ r.roll }}</td>
+                  <td>{{ r.diff }}</td>
+                  <td>{{ r.e_dmg }}</td>
+                  <td>{{ r.lw_dmg }}</td>
+                  <td>{{ r.enemy_ep }}</td>
+                  <td>{{ r.lw_ep }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>

@@ -1,7 +1,8 @@
 import os
 import re
+import json, random
 from markupsafe import Markup
-from flask import Flask, render_template, g, send_from_directory, abort, url_for
+from flask import Flask, render_template, g, send_from_directory, abort, url_for, request
 import sqlite3
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,6 +13,9 @@ IMAGE_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "jpeg")
 GIF_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "gif")
 PNG_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "png")
 JPEG_ROOT = os.path.join(BASE_DIR, "project-aon-master", "en", "jpeg")  # parfois utilisé
+
+# essaie de charger un CRT externe si dispo (facultatif)
+CRT_PATH = os.path.join(BASE_DIR, "project-aon-master", "common", "rules", "crt.json")
 
 app = Flask(__name__)
 
@@ -149,6 +153,166 @@ def _render_content_xml(xml: str) -> str:
     html = "".join(f"<p>{p}</p>" for p in parts) if parts else xml
     return html
 
+@app.route("/illu/<fmt>/<cat>/<code>/<path:path>")
+def illu(fmt, cat, code, path):
+    """
+    Sert une illustration depuis en/{gif|png|jpeg}/<cat>/<code>/<path>.
+    """
+    root_map = {"gif": GIF_ROOT, "png": PNG_ROOT, "jpeg": JPEG_ROOT}
+    base = root_map.get(fmt.lower())
+    if not base:
+        abort(404)
+    dir_path = os.path.join(base, cat, code, os.path.dirname(path))
+    filename = os.path.basename(path)
+    full = os.path.join(dir_path, filename)
+    if not os.path.isfile(full):
+        abort(404)
+    return send_from_directory(dir_path, filename)
+
+
+def load_crt():
+    try:
+        with open(CRT_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+CRT = load_crt()
+
+def lw_random():
+    return random.randint(0, 9)
+
+def resolve_round(cs_diff, crt, roll):
+    """
+    Retourne (dmg_enemy, dmg_lw).
+    Si crt est défini, il doit contenir la table numérique; sinon, on utilise le fallback heuristique.
+    """
+    if crt:
+        # Exemple attendu:
+        # { "cols":[-11,-9,-7,...,11,12], "table":[ [ [e,lw], ... 13 cols ], 10 rows ] }
+        cols = crt["cols"]
+        # trouve la colonne
+        col = 0
+        for i, c in enumerate(cols):
+            if cs_diff <= c:
+                col = i
+                break
+        else:
+            col = len(cols) - 1
+        row = max(0, min(9, int(roll)))
+        e, lw = crt["table"][row][col]
+        return (int(e), int(lw))
+    else:
+        # Fallback (même logique que précédemment)
+        base = 2
+        bonus = max(-3, min(3, cs_diff // 4))  # -3..+3
+        if roll >= 7:
+            e_dmg = base + bonus + 2
+            lw_dmg = max(0, base - bonus - 2)
+        elif roll >= 4:
+            e_dmg = base + bonus
+            lw_dmg = max(0, base - bonus)
+        else:
+            e_dmg = max(0, base + bonus - 1)
+            lw_dmg = base - bonus + 1
+        return (max(0, e_dmg), max(0, lw_dmg))
+    
+
+
+# ---------- Combat: vues ----------
+
+@app.route("/combat/<code>/<sec_id>", methods=["GET"])
+def combat_view(code, sec_id):
+    """
+    Page de préparation OU reprise d'un combat si état transmis en query (facultatif).
+    Affiche la liste d'ennemis détectés pour préremplir CS/EP.
+    """
+    db = get_db()
+    book = db.execute("SELECT * FROM books WHERE code=?", (code.lower(),)).fetchone()
+    if not book: abort(404)
+    section = db.execute("SELECT * FROM sections WHERE book_id=? AND sec_id=?", (book["id"], sec_id)).fetchone()
+    if not section: abort(404)
+
+    combat = db.execute("SELECT * FROM combats WHERE section_id=?", (section["id"],)).fetchone()
+    if not combat:
+        # Pas de combat pour cette section
+        return render_template("combat.html", book=book, section=section, enemies=[], state=None)
+
+    enemies = db.execute("""
+        SELECT * FROM combat_enemies WHERE combat_id=? ORDER BY enemy_index
+    """, (combat["id"],)).fetchall()
+
+    # Pas d'état => affiche le formulaire initial
+    return render_template("combat.html", book=book, section=section, enemies=enemies, state=None)
+
+@app.route("/combat/step/<code>/<sec_id>", methods=["POST"])
+def combat_step(code, sec_id):
+    """
+    Avance d'UN tour (ou initialise le combat si action=start).
+    On sérialise l'état côté client dans des champs hidden (simple et suffisant).
+    """
+    db = get_db()
+    book = db.execute("SELECT * FROM books WHERE code=?", (code.lower(),)).fetchone()
+    if not book: abort(404)
+    section = db.execute("SELECT * FROM sections WHERE book_id=? AND sec_id=?", (book["id"], sec_id)).fetchone()
+    if not section: abort(404)
+
+    action = request.form.get("action", "next")
+
+    if action == "start":
+        # Démarrage depuis formulaire
+        try:
+            lw_cs = int(request.form["lw_cs"])
+            lw_ep = int(request.form["lw_ep"])
+            enemy_cs = int(request.form["enemy_cs"])
+            enemy_ep = int(request.form["enemy_ep"])
+        except Exception:
+            abort(400)
+        state = {
+            "lw_cs": lw_cs,
+            "lw_ep": lw_ep,
+            "lw_ep_max": lw_ep,
+            "enemy_cs": enemy_cs,
+            "enemy_ep": enemy_ep,
+            "enemy_ep_max": enemy_ep, 
+            "round": 0,
+            "log": []
+        }
+    else:
+        # Continuer depuis l'état sérialisé
+        try:
+            state = json.loads(request.form["state_json"])
+            # sécurité minimale
+            for k in ("lw_cs","lw_ep","enemy_cs","enemy_ep","round","log"):
+                if k not in state: raise ValueError("bad state")
+        except Exception:
+            abort(400)
+
+    # Si déjà fini, on réaffiche juste le résultat
+    if state["lw_ep"] <= 0 or state["enemy_ep"] <= 0:
+        return render_template("combat.html", book=book, section=section, enemies=[], state=state)
+
+    # ---- Un tour ----
+    roll = lw_random()
+    cs_diff = int(state["lw_cs"]) - int(state["enemy_cs"])
+    e_dmg, lw_dmg = resolve_round(cs_diff, CRT, roll)
+
+    state["enemy_ep"] = max(0, int(state["enemy_ep"]) - int(e_dmg))
+    state["lw_ep"] = max(0, int(state["lw_ep"]) - int(lw_dmg))
+    state["round"] = int(state["round"]) + 1
+    state["log"].append({
+        "round": state["round"],
+        "roll": roll,
+        "diff": cs_diff,
+        "e_dmg": e_dmg,
+        "lw_dmg": lw_dmg,
+        "enemy_ep": state["enemy_ep"],
+        "lw_ep": state["lw_ep"]
+    })
+
+    return render_template("combat.html", book=book, section=section, enemies=[], state=state)
+
+
 @app.route("/play/<code>/")
 @app.route("/play/<code>/<sec_id>")
 def play(code, sec_id=None):
@@ -185,6 +349,17 @@ def play(code, sec_id=None):
     if not section:
         abort(404)
 
+    # y a-t-il un combat dans cette section ?
+    combat = get_db().execute("""
+        SELECT c.id AS combat_id
+        FROM combats c
+        WHERE c.section_id = ?
+        LIMIT 1
+    """, (section["id"],)).fetchone()
+
+    has_combat = combat is not None
+
+
     # ❗ On ne prend que les CHOIX (pas les prev/next)
     choices = db.execute("""
         SELECT to_sec_ref, COALESCE(display_text, to_sec_ref) AS label
@@ -209,34 +384,16 @@ def play(code, sec_id=None):
         if u:
             illu_urls.append(u)
 
-
-
-
     return render_template(
         "play.html",
         book=book,
         section=section,
         content_html=content_html,
         choices=choices,
-        illu_urls=illu_urls
+        illu_urls=illu_urls,
+        has_combat=has_combat,
+        combat_id=combat["combat_id"] if has_combat else None
     )
-
-
-@app.route("/illu/<fmt>/<cat>/<code>/<path:path>")
-def illu(fmt, cat, code, path):
-    """
-    Sert une illustration depuis en/{gif|png|jpeg}/<cat>/<code>/<path>.
-    """
-    root_map = {"gif": GIF_ROOT, "png": PNG_ROOT, "jpeg": JPEG_ROOT}
-    base = root_map.get(fmt.lower())
-    if not base:
-        abort(404)
-    dir_path = os.path.join(base, cat, code, os.path.dirname(path))
-    filename = os.path.basename(path)
-    full = os.path.join(dir_path, filename)
-    if not os.path.isfile(full):
-        abort(404)
-    return send_from_directory(dir_path, filename)
 
 
 if __name__ == "__main__":
