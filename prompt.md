@@ -59,4 +59,17 @@ la base est-elle prête pour la suite : c'est a dire afficher le contenu d'une s
 Prompt 5 : (je lui redonne aussi le app.py pour qu'il apporte les modifications necessaires)
 ---
 
-on avance bien, maintenant je souhaite afficher les ilustrations de chaque section (s'il y en a une), noramlement la db possède le nom des images de chaque section, il faudrait d'abourd aller chercher dans le dossier png, si pas trouvé, dans le dossier jpeg, ect... en se souvenant de l'architecture des dossiers
+on avance bien, maintenant je souhaite afficher les illustrations de chaque section (s'il y en a une), noramlement la db possède le nom des images de chaque section, il faudrait d'abourd aller chercher dans le dossier png, si pas trouvé, dans le dossier jpeg, ect... en se souvenant de l'architecture des dossiers
+
+
+Prompt 6 : (combat)
+---
+
+je te redonne le zip en te rajoutant le dossier 'common', je sais qu'il y a un système de combat dans le jeu, trouve les règles dans le common et met le système en place (seulement aux endroits necessaires et hésite pas a modifier la base de données (ajouter une table ect...))
+
+Prompt 7 : 
+---
+
+on va améliorer la qualité du rendu du combat, il faudrait que les combat soit tour par tour (avec un petit bouton "tour suivant")   
+on garde ce système !  
+et après l'affichage du combat faudrait le modifier aussi
